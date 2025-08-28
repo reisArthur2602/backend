@@ -5,6 +5,7 @@ import {
   type ErrorRequestHandler,
 } from "express";
 import { ZodError } from "zod";
+import type { AplicationError } from "../../utils/error-handlers.js";
 
 export const errorsMiddleware: ErrorRequestHandler = (
   error,
@@ -30,7 +31,9 @@ export const errorsMiddleware: ErrorRequestHandler = (
       message,
     }));
   } else if (error instanceof Error) {
-    errorResponse = [{ message: error.message ?? "Internal server error" }];
+    const appError = error as Error & Partial<AplicationError>;
+    statusCode = appError.statusCode ?? 500;
+    errorResponse = [{ message: appError.message ?? "Internal server error" }];
   } else {
     errorResponse = [{ message: "Internal server error" }];
   }

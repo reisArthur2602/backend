@@ -1,10 +1,15 @@
 import { Router } from "express";
-import { createUserController } from "./controller.js";
+import {
+  createUserController,
+  detailsUserController,
+  sessionUserController,
+} from "./controller.js";
+import { authMiddleware } from "../../http/middleware/auth.js";
 
 const userRoutes = Router();
 
 userRoutes.post("/create", createUserController);
-userRoutes.post("/session", () => {});
-userRoutes.get("/", () => {});
+userRoutes.post("/session", sessionUserController);
+userRoutes.get("/me", authMiddleware, detailsUserController);
 
 export { userRoutes };

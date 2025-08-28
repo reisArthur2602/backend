@@ -1,5 +1,5 @@
 import "dotenv/config";
-import express, { type ErrorRequestHandler } from "express";
+import express from "express";
 import cors from "cors";
 
 import { userRoutes } from "../modules/user/routes.js";
