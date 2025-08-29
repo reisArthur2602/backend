@@ -17,3 +17,19 @@ model User {
 
   @@map("users")
 }
+
+model WhatsAppInstance {
+  id          String                 @id @default(uuid())
+  instance_id String                 @unique
+  status      WhatsAppInstanceStatus @default(pending)
+  created_at  DateTime               @default(now())
+  updated_at  DateTime               @updatedAt
+
+  @@map("whatsapp_instances")
+}
+
+enum WhatsAppInstanceStatus {
+  pending
+  active
+  disconnected
+}

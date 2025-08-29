@@ -1,9 +1,11 @@
 import { Router } from "express";
+
 import {
   createUserController,
   detailsUserController,
   sessionUserController,
 } from "./controller.js";
+
 import { authMiddleware } from "../../http/middleware/auth.js";
 
 const userRoutes = Router();

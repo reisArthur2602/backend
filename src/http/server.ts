@@ -1,14 +1,20 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import http from "http";
 
 import { userRoutes } from "../modules/user/routes.js";
 import { errorsMiddleware } from "./middleware/errors.js";
+import { setupSocket } from "../lib/socket-io.js";
+import { whatsappRoutes } from "../modules/whatsapp/routes.js";
+import { loadStartupBaileysInstances } from "../lib/baileys.js";
 
-const app = express();
 const PORT = Number(process.env.PORT) || 8080;
+const app = express();
+const server = http.createServer(app);
 
-// Middlewares
+export const io = setupSocket({ server });
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
@@ -18,9 +24,11 @@ app.get("/ping", (req, res) => {
 });
 
 app.use("/user", userRoutes);
+app.use("/whatsapp", whatsappRoutes);
 
 app.use(errorsMiddleware);
 
-app.listen(PORT, () => {
-  console.log(`Server running on PORT ${PORT} 🚀`);
+app.listen(PORT, async () => {
+  console.log(`👽 Server rodando na Porta:${PORT}`);
+  await loadStartupBaileysInstances();
 });

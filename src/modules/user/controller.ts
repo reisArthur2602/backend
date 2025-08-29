@@ -23,7 +23,7 @@ export const createUserController = async (
           message: "O nome deve ter no mínimo 6 caracteres",
         })
         .trim()
-        .lowercase(),
+        .toLowerCase(),
     })
     .parse(request.body);
 
