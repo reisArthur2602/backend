@@ -28,7 +28,7 @@ app.use("/whatsapp", whatsappRoutes);
 
 app.use(errorsMiddleware);
 
-app.listen(PORT, async () => {
+server.listen(PORT, async () => {
   console.log(`👽 Server rodando na Porta:${PORT}`);
   await loadStartupBaileysInstances();
 });
