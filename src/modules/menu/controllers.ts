@@ -1,6 +1,7 @@
 import z from "zod";
 import type { Request, Response } from "express";
 import { createMenuService } from "./services/create.js";
+import { getAllMenusService } from "./services/get-all.js";
 
 export const createMenuController = async (
   request: Request,
@@ -31,4 +32,13 @@ export const createMenuController = async (
   await createMenuService({ name, message, keywords });
 
   return response.sendStatus(201);
+};
+
+export const getAllMenusController = async (
+  request: Request,
+  response: Response
+) => {
+  const menus = await getAllMenusService();
+
+  return response.status(200).json({ menus });
 };

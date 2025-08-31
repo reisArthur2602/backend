@@ -1,6 +1,7 @@
 import { Router } from "express";
-import { createMenuController } from "./controllers.js";
+import { createMenuController, getAllMenusController } from "./controllers.js";
 
 export const menuRoutes = Router();
 
 menuRoutes.post("/create", createMenuController);
+menuRoutes.get("/", getAllMenusController);
