@@ -10,6 +10,7 @@ import { whatsappRoutes } from "../modules/whatsapp/routes.js";
 import { loadStartupBaileysInstances } from "../lib/baileys.js";
 import { menuRoutes } from "../modules/menu/routes.js";
 import { optionRoutes } from "../modules/option/route.js";
+import { leadRoutes } from "../modules/lead/routes.js";
 
 const PORT = Number(process.env.PORT) || 8080;
 const app = express();
@@ -29,6 +30,8 @@ app.use("/user", userRoutes);
 app.use("/whatsapp", whatsappRoutes);
 app.use("/menu", menuRoutes);
 app.use("/menu/option", optionRoutes);
+app.use("/lead", leadRoutes);
+app.use("/message", leadRoutes);
 
 app.use(errorsMiddleware);
 

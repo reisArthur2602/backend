@@ -102,3 +102,35 @@ enum MenuOptionAction {
   redirect_queue
   end_session
 }
+
+model Lead {
+  id         String    @id @default(uuid())
+  name       String?
+  phone      String    @unique
+  state      LeadState @default(idle)
+  messages   Message[]
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+}
+
+model Message {
+  id         String      @id @default(uuid())
+  text       String
+  from       MessageFrom
+  lead       Lead        @relation(fields: [leadId], references: [id])
+  leadId     String
+  created_at DateTime    @default(now())
+}
+
+enum LeadState {
+  idle
+  await_option
+  in_queue
+  in_service
+}
+
+enum MessageFrom {
+  customer
+  menu
+  agent
+}
