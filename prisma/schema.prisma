@@ -8,11 +8,11 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  password     String
-  name         String
-  created_at   DateTime @default(now())
+  id         String   @id @default(uuid())
+  email      String   @unique
+  password   String
+  name       String
+  created_at DateTime @default(now())
   last_updated DateTime @updatedAt
 
   @@map("users")
@@ -28,8 +28,79 @@ model WhatsAppInstance {
   @@map("whatsapp_instances")
 }
 
+model Menu {
+  id       String   @id @default(uuid())
+  name     String   @unique
+  message  String
+  keywords String[]
+  active   Boolean  @default(true)
+
+  options                     MenuOption[]
+  default_message_out_of_time String?
+  default_message_out_of_date String?
+
+  config MenuConfig?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("menus")
+}
+
+model MenuConfig {
+  id         String           @id @default(uuid())
+  start_time String
+  end_time   String
+  days       MenuConfigDays[]
+
+  default_message_out_of_time Boolean @default(false)
+  default_message_out_of_date Boolean @default(false)
+
+  menu   Menu   @relation(fields: [menuId], references: [id])
+  menuId String @unique
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("menu_configs")
+}
+
+model MenuOption {
+  id      String @id @default(uuid())
+  menu_id String
+  menu    Menu   @relation(fields: [menu_id], references: [id])
+
+  label       String
+  trigger     Int
+  action      MenuOptionAction
+  days        MenuConfigDays[]
+  reply_text  String?
+  finish_text String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("menu_options")
+}
+
 enum WhatsAppInstanceStatus {
   pending
   active
   disconnected
+}
+
+enum MenuConfigDays {
+  monday
+  tuesday
+  wednesday
+  thursday
+  friday
+  saturday
+  sunday
+}
+
+enum MenuOptionAction {
+  auto_reply
+  redirect_queue
+  end_session
 }
