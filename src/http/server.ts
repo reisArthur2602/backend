@@ -9,6 +9,7 @@ import { setupSocket } from "../lib/socket-io.js";
 import { whatsappRoutes } from "../modules/whatsapp/routes.js";
 import { loadStartupBaileysInstances } from "../lib/baileys.js";
 import { menuRoutes } from "../modules/menu/routes.js";
+import { optionRoutes } from "../modules/option/route.js";
 
 const PORT = Number(process.env.PORT) || 8080;
 const app = express();
@@ -27,6 +28,7 @@ app.get("/ping", (req, res) => {
 app.use("/user", userRoutes);
 app.use("/whatsapp", whatsappRoutes);
 app.use("/menu", menuRoutes);
+app.use("/menu/option", optionRoutes);
 
 app.use(errorsMiddleware);
 
