@@ -193,6 +193,7 @@ export const startBaileysInstance = async ({
   if (!instance) throw new NotFoundError("A instância não foi encontrada");
 
   sock.ev.on("connection.update", async (update) => {
+
     const { connection, lastDisconnect, qr } = update;
     let status: "pending" | "active" = "pending";
 
@@ -225,8 +226,14 @@ export const startBaileysInstance = async ({
       }
     }
 
-    instances.set(instance_id, { ...instance, status, socket: sock });
     io.emit(`status:${instance_id}`, status);
+
+    io.on('connection',async(socket)=>{
+      socket.emit(`qr:${instance_id}`, qr);
+      socket.emit(`status:${instance_id}`, status);
+    })
+
+    instances.set(instance_id, { ...instance, status, socket: sock });
 
     await prisma.whatsAppInstance.update({
       where: { instance_id },
