@@ -21,6 +21,7 @@ type MessageInMemory = {
 };
 
 type LeadInMemory = {
+  id: string;
   name: string | null;
   state: LeadState;
   phone: string;
@@ -59,6 +60,7 @@ const getLead = async ({
   const dbLead = await prisma.lead.findUnique({
     where: { phone },
     select: {
+      id: true,
       name: true,
       state: true,
       phone: true,
@@ -71,11 +73,25 @@ const getLead = async ({
     leads.set(phone, lead);
     return lead;
   }
-  // Caso não encontre nada cria um em memóeia
+
+  const lead = await prisma.lead.create({
+    data: {
+      phone,
+      name: pushName ?? null,
+    },
+    select: {
+      id: true,
+      name: true,
+      state: true,
+      phone: true,
+    },
+  });
+
   const newLead: LeadInMemory = {
+    id: lead.id,
     name: pushName ?? null,
     phone,
-    state: "idle",
+    state: lead.state,
     menu_id: null,
     messages: [],
   };
@@ -145,7 +161,6 @@ export const startBaileysInstance = async ({
       data: { status },
     });
   });
-  // TODO: 1-Criar user no banco desde o primeiro contato 2-Adicionar id do lead ao objeto em memoria 2- Salvar mensagens no banco em caso de in-queue e in-service ,
   sock.ev.on("messages.upsert", async ({ messages }) => {
     const msg = messages[0];
     if (!msg?.message || msg?.key.fromMe) return;
@@ -155,13 +170,25 @@ export const startBaileysInstance = async ({
     const phone = msg.key.remoteJid!;
     const text =
       msg.message.conversation || msg.message?.extendedTextMessage?.text || "";
-    const currentLead = await getLead({ phone, pushName });
-    // const avatar = await sock.profilePictureUrl(phone).catch(() => null);
 
+    const currentLead = await getLead({ phone, pushName });
     const now = new Date();
 
     currentLead.messages.push({ from: "customer", created_at: now, text });
     leads.set(phone, currentLead);
+
+    if (
+      currentLead.state === "in_queue" ||
+      currentLead.state === "in_service"
+    ) {
+      await prisma.message.create({
+        data: {
+          from: "customer",
+          text,
+          leadId: currentLead.id,
+        },
+      });
+    }
     console.log(currentLead);
 
     switch (currentLead.state) {
@@ -198,6 +225,7 @@ export const startBaileysInstance = async ({
 
         currentLead.menu_id = menuFound.id;
         currentLead.state = "await_option";
+
         leads.set(phone, currentLead);
         break;
 
@@ -257,13 +285,15 @@ export const startBaileysInstance = async ({
               text: reply,
             });
             currentLead.state = "in_queue";
+
             leads.set(phone, currentLead);
 
-            const lead = await prisma.lead.create({
+            const lead = await prisma.lead.update({
+              where: {
+                id: currentLead.id,
+              },
               data: {
-                phone,
-                name: currentLead.name,
-                state: currentLead.state,
+                state: `in_queue`,
                 messages: {
                   createMany: {
                     data: currentLead.messages,
@@ -271,7 +301,7 @@ export const startBaileysInstance = async ({
                   },
                 },
               },
-              include: { messages: true },
+              include: { messages: { orderBy: { created_at: "asc" } } },
             });
 
             io.emit("newLead", lead);
@@ -284,11 +314,23 @@ export const startBaileysInstance = async ({
       case "in_queue":
         const reply =
           "🙋 Você está na fila, um atendente entrará em contato assim que possível.";
+          
         await sock.sendMessage(phone, { text: reply });
+
         currentLead.messages.push({
           from: "menu",
           created_at: now,
           text: reply,
+        });
+
+        leads.set(phone, currentLead);
+
+        await prisma.message.create({
+          data: {
+            from: "menu",
+            text: reply,
+            leadId: currentLead.id,
+          },
         });
 
         break;
