@@ -14,6 +14,7 @@ import { leadRoutes } from "../modules/lead/routes.js";
 
 const PORT = Number(process.env.PORT) || 8080;
 const app = express();
+
 const server = http.createServer(app);
 
 export const io = setupSocket({ server });
@@ -31,7 +32,7 @@ app.use("/whatsapp", whatsappRoutes);
 app.use("/menu", menuRoutes);
 app.use("/menu/option", optionRoutes);
 app.use("/lead", leadRoutes);
-app.use("/message", leadRoutes);
+// app.use("/message", leadRoutes);
 
 app.use(errorsMiddleware);
 
