@@ -161,6 +161,7 @@ export const startBaileysInstance = async ({
       data: { status },
     });
   });
+
   sock.ev.on("messages.upsert", async ({ messages }) => {
     const msg = messages[0];
     if (!msg?.message || msg?.key.fromMe) return;
@@ -308,41 +309,32 @@ export const startBaileysInstance = async ({
 
             break;
         }
-
-        break;
-
-      case "in_queue":
-        const reply =
-          "🙋 Você está na fila, um atendente entrará em contato assim que possível.";
-          
-        await sock.sendMessage(phone, { text: reply });
-
-        currentLead.messages.push({
-          from: "menu",
-          created_at: now,
-          text: reply,
-        });
-
-        leads.set(phone, currentLead);
-
-        await prisma.message.create({
-          data: {
-            from: "menu",
-            text: reply,
-            leadId: currentLead.id,
-          },
-        });
-
-        break;
     }
+
+    io.on("connection", (socket) => {
+      socket.emit("receive_message", phone, text);
+    });
   });
 
   sock.ev.on("creds.update", saveCreds);
 
   io.on("connection", async (socket) => {
     const queue = await getLeadsService();
-
     socket.emit("queue", queue);
+
+    socket.on("send_message", async (phone, text) => {
+      const currentLead = leads.get(phone);
+      if (!currentLead) return null;
+
+      await sock.sendMessage(phone, { text });
+      await prisma.message.create({
+        data: {
+          from: "agent",
+          text,
+          leadId: currentLead.id,
+        },
+      });
+    });
   });
 
   return sock;

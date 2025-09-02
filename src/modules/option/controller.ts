@@ -16,7 +16,6 @@ export const createOptionController = async (
             trigger: z.coerce.number(),
             label: z.string().min(1, "O rótulo é obrigatório"),
             reply_text: z.string().nullable(),
-
             action: z.nativeEnum(MenuOptionAction),
           })
         )
