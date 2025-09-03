@@ -8,7 +8,7 @@ import {
 } from "@whiskeysockets/baileys";
 import { Boom } from "@hapi/boom";
 import { prisma } from "./prisma.js";
-import { NotFoundError } from "../utils/error-handlers.js";
+
 import { io } from "../http/server.js";
 import { type WASocket } from "@whiskeysockets/baileys";
 import type { LeadState, MessageFrom } from "@prisma/client";
@@ -37,10 +37,7 @@ export type WhatsAppInstance = {
   socket?: WASocket;
 };
 
-export const instances: Map<string, WhatsAppInstance> = new Map();
-
 const INSTANCES_PATH = path.resolve("./instances");
-
 interface IStartInstanceBaileys {
   instance_id: string;
 }
@@ -105,14 +102,12 @@ export const startBaileysInstance = async ({
   instance_id,
 }: IStartInstanceBaileys) => {
   const instancePath = path.join(INSTANCES_PATH, instance_id);
+
   if (!fs.existsSync(instancePath))
     fs.mkdirSync(instancePath, { recursive: true });
 
   const { state, saveCreds } = await useMultiFileAuthState(instancePath);
   const sock = makeWASocket({ auth: state });
-
-  const instance = instances.get(instance_id);
-  if (!instance) throw new NotFoundError("A instância não foi encontrada");
 
   sock.ev.on("connection.update", async (update) => {
     const { connection, lastDisconnect, qr } = update;
@@ -141,7 +136,6 @@ export const startBaileysInstance = async ({
             force: true,
           });
         }
-        instances.set(instance_id, { ...instance, status });
         await startBaileysInstance({ instance_id });
         break;
       }
@@ -152,13 +146,6 @@ export const startBaileysInstance = async ({
     io.on("connection", async (socket) => {
       socket.emit(`qr:${instance_id}`, qr);
       socket.emit(`status:${instance_id}`, status);
-    });
-
-    instances.set(instance_id, { ...instance, status, socket: sock });
-
-    await prisma.whatsAppInstance.update({
-      where: { instance_id },
-      data: { status },
     });
   });
 
@@ -182,6 +169,8 @@ export const startBaileysInstance = async ({
       currentLead.state === "in_queue" ||
       currentLead.state === "in_service"
     ) {
+      io.emit(`receive_message`, phone, text);
+
       await prisma.message.create({
         data: {
           from: "customer",
@@ -310,10 +299,6 @@ export const startBaileysInstance = async ({
             break;
         }
     }
-
-    io.on("connection", (socket) => {
-      socket.emit("receive_message", phone, text);
-    });
   });
 
   sock.ev.on("creds.update", saveCreds);
@@ -338,17 +323,4 @@ export const startBaileysInstance = async ({
   });
 
   return sock;
-};
-
-export const loadStartupBaileysInstances = async () => {
-  const dbInstances = await prisma.whatsAppInstance.findMany();
-
-  for (const dbInstance of dbInstances) {
-    instances.set(dbInstance.instance_id, {
-      instance_id: dbInstance.instance_id,
-      status: dbInstance.status as "pending" | "active",
-    });
-
-    await startBaileysInstance({ instance_id: dbInstance.instance_id });
-  }
 };

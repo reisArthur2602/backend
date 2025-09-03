@@ -6,11 +6,12 @@ import http from "http";
 import { userRoutes } from "../modules/user/routes.js";
 import { errorsMiddleware } from "./middleware/errors.js";
 import { setupSocket } from "../lib/socket-io.js";
-import { whatsappRoutes } from "../modules/whatsapp/routes.js";
-import { loadStartupBaileysInstances } from "../lib/baileys.js";
+
+import { startBaileysInstance } from "../lib/baileys.js";
 import { menuRoutes } from "../modules/menu/routes.js";
 import { optionRoutes } from "../modules/option/route.js";
 import { leadRoutes } from "../modules/lead/routes.js";
+import { messageRoute } from "../modules/message/route.js";
 
 const PORT = Number(process.env.PORT) || 8080;
 const app = express();
@@ -28,15 +29,15 @@ app.get("/ping", (req, res) => {
 });
 
 app.use("/user", userRoutes);
-app.use("/whatsapp", whatsappRoutes);
+
 app.use("/menu", menuRoutes);
 app.use("/menu/option", optionRoutes);
 app.use("/lead", leadRoutes);
-// app.use("/message", leadRoutes);
+app.use("/message", messageRoute);
 
 app.use(errorsMiddleware);
 
 server.listen(PORT, async () => {
   console.log(`👽 Server rodando na Porta:${PORT}`);
-  await loadStartupBaileysInstances();
+  await startBaileysInstance({ instance_id: "marketing" });
 });

@@ -1,20 +1,18 @@
 import type { Request, Response } from "express";
 import z from "zod";
-import { getMessageByLead } from "./services/get-by-lead.js";
+import { getMessageByPhone } from "./services/get-by-phone.js";
 
 export const getMessageByLeadController = async (
   request: Request,
   response: Response
 ) => {
-  const { lead_id } = z
+  const { phone } = z
     .object({
-      lead_id: z
-        .string("O id do contato é um campo obrigatorio")
-        .uuid({ message: "Formato inválido" }),
+      phone: z.string("O JID do usuário é um campo obrigatório"),
     })
     .parse(request.params);
 
-  const messages = await getMessageByLead({ lead_id });
+  const messages = await getMessageByPhone({ phone });
 
   return response.status(200).json(messages);
 };

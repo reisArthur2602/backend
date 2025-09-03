@@ -9,10 +9,6 @@ export const setupSocket = ({ server }: ISetupSocket) => {
 
   io.on("connection", (socket) => {
     console.log("Cliente conectado:", socket.id);
-
-    socket.on("subscribe-instance", (instanceId: string) => {
-      console.log(`Cliente quer acompanhar: ${instanceId}`);
-    });
   });
 
   return io;
