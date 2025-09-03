@@ -18,16 +18,6 @@ model User {
   @@map("users")
 }
 
-model WhatsAppInstance {
-  id          String                 @id @default(uuid())
-  instance_id String                 @unique
-  status      WhatsAppInstanceStatus @default(pending)
-  created_at  DateTime               @default(now())
-  updated_at  DateTime               @updatedAt
-
-  @@map("whatsapp_instances")
-}
-
 model Menu {
   id       String   @id @default(uuid())
   name     String   @unique
@@ -37,30 +27,10 @@ model Menu {
 
   options MenuOption[]
 
-  config MenuConfig?
-
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
   @@map("menus")
-}
-
-model MenuConfig {
-  id         String           @id @default(uuid())
-  start_time String
-  end_time   String
-  days       MenuConfigDays[]
-
-  default_message_out_of_time String?
-  default_message_out_of_date String?
-
-  menu   Menu   @relation(fields: [menuId], references: [id])
-  menuId String @unique
-
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-
-  @@map("menu_configs")
 }
 
 model MenuOption {
@@ -68,12 +38,13 @@ model MenuOption {
   menu_id String
   menu    Menu   @relation(fields: [menu_id], references: [id])
 
-  label       String
-  trigger     Int
-  action      MenuOptionAction
-  days        MenuConfigDays[]
+  label   String
+  trigger Int
+  action  MenuOptionAction
+
   reply_text  String?
   finish_text String?
+  forward_to String?
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -84,23 +55,12 @@ model MenuOption {
 enum WhatsAppInstanceStatus {
   pending
   active
-  disconnected
-}
-
-enum MenuConfigDays {
-  monday
-  tuesday
-  wednesday
-  thursday
-  friday
-  saturday
-  sunday
 }
 
 enum MenuOptionAction {
   auto_reply
   redirect_queue
-  end_session
+  forward
 }
 
 model Lead {
@@ -125,6 +85,7 @@ model Message {
 enum LeadState {
   idle
   await_option
+  await_response
   in_queue
   in_service
 }

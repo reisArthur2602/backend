@@ -13,6 +13,7 @@ import { io } from "../http/server.js";
 import { type WASocket } from "@whiskeysockets/baileys";
 import type { LeadState, MessageFrom } from "@prisma/client";
 import { getLeadsService } from "../modules/lead/services/get.js";
+import { normalizeText } from "../utils/normalize-text.js";
 
 type MessageInMemory = {
   created_at: Date;
@@ -183,15 +184,22 @@ export const startBaileysInstance = async ({
 
     switch (currentLead.state) {
       case "idle":
-        const menuFound = await prisma.menu.findFirst({
-          where: { keywords: { hasSome: [text.toLowerCase().trim()] } },
+        const normalizedText = normalizeText(text);
+        const menus = await prisma.menu.findMany({
+          where: { active: true },
           select: {
             id: true,
-            _count: { select: { options: true } },
+            keywords: true,
             message: true,
+            _count: { select: { options: true } },
           },
         });
 
+        const menuFound = menus.find((menu) =>
+          menu.keywords.some((keyword) =>
+            normalizedText.includes(normalizeText(keyword))
+          )
+        );
         if (!menuFound) break;
 
         if (menuFound._count.options === 0) {
@@ -203,6 +211,7 @@ export const startBaileysInstance = async ({
           });
           currentLead.state = "idle";
           leads.set(phone, currentLead);
+          break;
         }
 
         await sock.sendMessage(phone, { text: menuFound.message });
@@ -291,13 +300,51 @@ export const startBaileysInstance = async ({
                   },
                 },
               },
-              include: { messages: { orderBy: { created_at: "asc" } } },
+              select: {
+                id: true,
+                name: true,
+                phone: true,
+                state: true,
+                messages: {
+                  take: 1,
+                  orderBy: { created_at: "desc" },
+                  select: {
+                    text: true,
+                    created_at: true,
+                  },
+                },
+                _count: { select: { messages: true } },
+              },
             });
 
-            io.emit("newLead", lead);
+            io.emit("newLead", {
+              id: lead.id,
+              name: lead.name,
+              phone: lead.phone,
+              state: lead.state,
+              lastMessage: lead.messages[0] ?? null,
+              count: lead._count?.messages ?? 0,
+            });
 
             break;
+
+          case "forward":
+            await sock.sendMessage(phone, { text: optionFound.reply_text! });
+            currentLead.messages.push({
+              from: "menu",
+              created_at: now,
+              text: optionFound.reply_text!,
+            });
+            currentLead.state = "await_response";
+            break;
         }
+
+      case "await_response":
+        await sock.sendMessage(optionFound!.forward_to!, { text });
+        await sock.sendMessage(phone, { text: optionFound!.finish_text! });
+        currentLead.state = "idle";
+        leads.set(phone, currentLead);
+        break;
     }
   });
 
