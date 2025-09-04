@@ -20,24 +20,14 @@ export const createMenuService = async ({
     },
   });
 
-  if (existingMenu) {
-    throw new ConflictError(
-      `Uma ou mais palavras-chave já estão em uso pelo menu "${existingMenu.name}".`
-    );
-  }
+  if (existingMenu)
+    throw new ConflictError(`Uma ou mais palavras-chave já estão em uso`);
 
   const menu = await prisma.menu.create({
     data: {
       keywords,
       message,
       name,
-      config: {
-        create: {
-          start_time: "08:00",
-          end_time: "18:00",
-          days: ["monday", "friday", "thursday", "tuesday", "wednesday"],
-        },
-      },
     },
   });
 

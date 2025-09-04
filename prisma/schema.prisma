@@ -8,27 +8,25 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  password     String
-  name         String
-  created_at   DateTime @default(now())
-  last_updated DateTime @updatedAt
+  id         String   @id @default(uuid())
+  email      String   @unique
+  password   String
+  name       String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   @@map("users")
 }
 
 model Menu {
-  id       String   @id @default(uuid())
-  name     String   @unique
-  message  String
-  keywords String[]
-  active   Boolean  @default(true)
-
-  options MenuOption[]
-
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+  id         String       @id @default(uuid())
+  name       String       @unique
+  message    String
+  keywords   String[]     @default([])
+  active     Boolean      @default(true)
+  options    MenuOption[]
+  created_at DateTime     @default(now())
+  updated_at DateTime     @updatedAt
 
   @@map("menus")
 }
@@ -36,31 +34,24 @@ model Menu {
 model MenuOption {
   id      String @id @default(uuid())
   menu_id String
-  menu    Menu   @relation(fields: [menu_id], references: [id])
-
+  menu    Menu   @relation(fields: [menu_id], references: [id], onDelete: Cascade)
   label   String
   trigger Int
-  action  MenuOptionAction
 
-  reply_text  String?
-  finish_text String?
-  forward_to String?
+  action  OptionAction
+  payload Json?
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
+  @@index([menu_id])
   @@map("menu_options")
 }
 
-enum WhatsAppInstanceStatus {
-  pending
-  active
-}
-
-enum MenuOptionAction {
+enum OptionAction {
   auto_reply
+  forward_to_number
   redirect_queue
-  forward
 }
 
 model Lead {
@@ -71,21 +62,27 @@ model Lead {
   messages   Message[]
   created_at DateTime  @default(now())
   updated_at DateTime  @updatedAt
+
+  @@map("leads")
 }
 
 model Message {
-  id         String      @id @default(uuid())
-  text       String
-  from       MessageFrom
-  lead       Lead        @relation(fields: [leadId], references: [id])
-  leadId     String
-  created_at DateTime    @default(now())
+  id   String      @id @default(uuid())
+  text String
+  from MessageFrom
+
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId String
+
+  created_at DateTime @default(now())
+
+  @@index([leadId, created_at])
+  @@map("messages")
 }
 
 enum LeadState {
   idle
   await_option
-  await_response
   in_queue
   in_service
 }

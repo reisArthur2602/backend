@@ -1,7 +1,8 @@
 import z from "zod";
 import type { Request, Response } from "express";
-import { createMenuService } from "./services/create.js";
-import { getAllMenusService } from "./services/get-all.js";
+import { createMenuService } from "./services/create-menu.js";
+import { getMenusService } from "./services/get-menus.js";
+import { deleteMenuService } from "./services/delete-menu.js";
 
 export const createMenuController = async (
   request: Request,
@@ -10,21 +11,26 @@ export const createMenuController = async (
   const { name, message, keywords } = z
     .object({
       name: z
-        .string({ message: "O nome do menu é obrigatório" })
-        .min(2, { message: "O nome do menu deve ter ao menos 2 caracteres" })
+        .string({ message: "Informe o nome do menu." })
+        .min(2, { message: "O nome do menu deve ter pelo menos 2 caracteres." })
         .trim(),
       message: z
-        .string({ message: "A mensagem do menu é obrigatória" })
-        .min(5, { message: "A mensagem deve ter ao menos 5 caracteres" })
+        .string({ message: "Informe a mensagem do menu." })
+        .min(5, {
+          message: "A mensagem do menu deve ter pelo menos 5 caracteres.",
+        })
         .trim(),
       keywords: z.array(
         z
           .string()
           .toLowerCase()
           .min(2, {
-            message: "Cada palavra-chave deve ter ao menos 2 caracteres",
+            message: "Cada palavra-chave deve ter pelo menos 2 caracteres.",
           })
-          .trim()
+          .trim(),
+        {
+          message: "Adicione pelo menos uma palavra-chave.",
+        }
       ),
     })
     .parse(request.body);
@@ -34,11 +40,24 @@ export const createMenuController = async (
   return response.sendStatus(201);
 };
 
-export const getAllMenusController = async (
+export const deleteMenuController = async (
   request: Request,
   response: Response
 ) => {
-  const menus = await getAllMenusService();
+  const { menu_id } = z
+    .object({
+      menu_id: z.string({ message: "O ID do menu é obrigatório." }).uuid({
+        message: "O ID do menu deve estar em um formato UUID válido.",
+      }),
+    })
+    .parse(request.params);
+  await deleteMenuService({ id: menu_id });
 
-  return response.status(200).json({ menus });
+  return response.sendStatus(204);
+};
+
+export const getMenusController = async (_: Request, response: Response) => {
+  const menus = await getMenusService();
+
+  return response.status(200).json(menus);
 };

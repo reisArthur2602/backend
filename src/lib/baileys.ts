@@ -1,3 +1,4 @@
+// server/baileys-instance.js
 import path from "path";
 import fs from "fs";
 import qrcode from "qrcode-terminal";
@@ -8,9 +9,8 @@ import {
 } from "@whiskeysockets/baileys";
 import { Boom } from "@hapi/boom";
 import { prisma } from "./prisma.js";
-
 import { io } from "../http/server.js";
-import { type WASocket } from "@whiskeysockets/baileys";
+
 import type { LeadState, MessageFrom } from "@prisma/client";
 import { getLeadsService } from "../modules/lead/services/get.js";
 import { normalizeText } from "../utils/normalize-text.js";
@@ -29,19 +29,20 @@ type LeadInMemory = {
   messages: MessageInMemory[];
   menu_id: string | null;
 };
+const formatPhoneFromJid = (remoteJid?: string) => {
+  if (!remoteJid) return "";
+  const id = remoteJid.split("@")[0];
+  // if already starts with + keep, else add +
+  return id?.startsWith("+") ? id : `+${id}`;
+};
+const INSTANCES_PATH = path.resolve("./instances");
 
 const leads = new Map<string, LeadInMemory>();
 
-export type WhatsAppInstance = {
-  instance_id: string;
-  status: "pending" | "active" | "disconnected";
-  socket?: WASocket;
+const ensureInstanceDir = (instancePath: string) => {
+  if (!fs.existsSync(instancePath))
+    fs.mkdirSync(instancePath, { recursive: true });
 };
-
-const INSTANCES_PATH = path.resolve("./instances");
-interface IStartInstanceBaileys {
-  instance_id: string;
-}
 
 const getLead = async ({
   phone,
@@ -50,11 +51,9 @@ const getLead = async ({
   phone: string;
   pushName: string;
 }) => {
-  // Se encontrou retorna
   const currentLead = leads.get(phone);
   if (currentLead) return currentLead;
 
-  // Procura no banco
   const dbLead = await prisma.lead.findUnique({
     where: { phone },
     select: {
@@ -65,9 +64,9 @@ const getLead = async ({
       messages: { select: { created_at: true, from: true, text: true } },
     },
   });
-  // caso exista no banco, salva em memória e retorna
+
   if (dbLead) {
-    const lead = { ...dbLead, menu_id: null };
+    const lead = { ...dbLead, menu_id: null, messages: dbLead.messages ?? [] };
     leads.set(phone, lead);
     return lead;
   }
@@ -101,11 +100,11 @@ const getLead = async ({
 
 export const startBaileysInstance = async ({
   instance_id,
-}: IStartInstanceBaileys) => {
+}: {
+  instance_id: string;
+}) => {
   const instancePath = path.join(INSTANCES_PATH, instance_id);
-
-  if (!fs.existsSync(instancePath))
-    fs.mkdirSync(instancePath, { recursive: true });
+  ensureInstanceDir(instancePath);
 
   const { state, saveCreds } = await useMultiFileAuthState(instancePath);
   const sock = makeWASocket({ auth: state });
@@ -151,203 +150,254 @@ export const startBaileysInstance = async ({
   });
 
   sock.ev.on("messages.upsert", async ({ messages }) => {
-    const msg = messages[0];
-    if (!msg?.message || msg?.key.fromMe) return;
+    try {
+      const msg = messages[0];
+      if (!msg?.message || msg?.key?.fromMe) return;
 
-    // Dados da mensagem
-    const pushName = msg.pushName || "";
-    const phone = msg.key.remoteJid!;
-    const text =
-      msg.message.conversation || msg.message?.extendedTextMessage?.text || "";
+      const pushName = msg.pushName || "";
 
-    const currentLead = await getLead({ phone, pushName });
-    const now = new Date();
+      const phone = msg.key.remoteJid!;
+      console.log(phone);
+      const text =
+        msg.message.conversation ||
+        msg.message?.extendedTextMessage?.text ||
+        // add other message types if you need (image with caption, etc.)
+        "";
 
-    currentLead.messages.push({ from: "customer", created_at: now, text });
-    leads.set(phone, currentLead);
+      const currentLead = await getLead({ phone, pushName });
+      const now = new Date();
 
-    if (
-      currentLead.state === "in_queue" ||
-      currentLead.state === "in_service"
-    ) {
-      io.emit(`receive_message`, phone, text);
+      currentLead.messages.push({ from: "customer", created_at: now, text });
+      leads.set(phone, currentLead);
 
-      await prisma.message.create({
-        data: {
-          from: "customer",
-          text,
-          leadId: currentLead.id,
-        },
-      });
-    }
-    console.log(currentLead);
+      // if already in queue or in service -> forward to UI and persist
+      if (
+        currentLead.state === "in_queue" ||
+        currentLead.state === "in_service"
+      ) {
+        io.emit("receive_message", phone, text);
 
-    switch (currentLead.state) {
-      case "idle":
-        const normalizedText = normalizeText(text);
-        const menus = await prisma.menu.findMany({
-          where: { active: true },
-          select: {
-            id: true,
-            keywords: true,
-            message: true,
-            _count: { select: { options: true } },
+        await prisma.message.create({
+          data: {
+            from: "customer",
+            text,
+            leadId: currentLead.id,
           },
         });
+        return;
+      }
 
-        const menuFound = menus.find((menu) =>
-          menu.keywords.some((keyword) =>
-            normalizedText.includes(normalizeText(keyword))
-          )
-        );
-        if (!menuFound) break;
+      //
+      switch (currentLead.state) {
+        case "idle": {
+          const normalizedText = normalizeText(text);
+          const menus = await prisma.menu.findMany({
+            where: { active: true },
+            select: {
+              id: true,
+              keywords: true,
+              message: true,
+              _count: { select: { options: true } },
+            },
+          });
 
-        if (menuFound._count.options === 0) {
+          const menuFound = menus.find((menu) =>
+            menu.keywords.some((keyword) =>
+              normalizedText.includes(normalizeText(keyword))
+            )
+          );
+
+          if (!menuFound) break;
+
+          // no options -> just auto-reply with menu message
+          if ((menuFound._count?.options ?? 0) === 0) {
+            await sock.sendMessage(phone, { text: menuFound.message });
+            currentLead.messages.push({
+              from: "menu",
+              created_at: now,
+              text: menuFound.message,
+            });
+            currentLead.state = "idle";
+            leads.set(phone, currentLead);
+            break;
+          }
+
+          // menu with options -> send menu and await option
           await sock.sendMessage(phone, { text: menuFound.message });
           currentLead.messages.push({
             from: "menu",
             created_at: now,
             text: menuFound.message,
           });
-          currentLead.state = "idle";
+          currentLead.menu_id = menuFound.id;
+          currentLead.state = "await_option";
           leads.set(phone, currentLead);
           break;
         }
 
-        await sock.sendMessage(phone, { text: menuFound.message });
+        case "await_option": {
+          const trigger = Number(text.trim());
 
-        currentLead.messages.push({
-          from: "menu",
-          created_at: now,
-          text: menuFound.message,
-        });
-
-        currentLead.menu_id = menuFound.id;
-        currentLead.state = "await_option";
-
-        leads.set(phone, currentLead);
-        break;
-
-      case "await_option":
-        const trigger = Number(text.trim());
-
-        if (!trigger) {
-          const reply = "Por favor, escolha uma das opções (digite o número).";
-
-          await sock.sendMessage(phone, { text: reply });
-          currentLead.messages.push({
-            from: "menu",
-            created_at: now,
-            text: reply,
-          });
-
-          leads.set(phone, currentLead);
-          return;
-        }
-
-        const optionFound = await prisma.menuOption.findFirst({
-          where: { menu_id: currentLead.menu_id!, trigger },
-        });
-
-        if (!optionFound) {
-          const reply =
-            "Opção inválida. Por favor, escolha uma das opções listadas.";
-          await sock.sendMessage(phone, { text: reply });
-          currentLead.messages.push({
-            from: "menu",
-            created_at: now,
-            text: reply,
-          });
-          leads.set(phone, currentLead);
-          break;
-        }
-
-        switch (optionFound.action) {
-          case "auto_reply":
-            await sock.sendMessage(phone, { text: optionFound.reply_text! });
-            currentLead.messages.push({
-              from: "menu",
-              created_at: now,
-              text: optionFound.reply_text!,
-            });
-            currentLead.state = "idle";
-            leads.set(phone, currentLead);
-            break;
-
-          case "redirect_queue":
+          if (!trigger) {
             const reply =
-              "🙋 Você foi adicionado à fila de atendimento. Aguarde um atendente.";
+              "Por favor, escolha uma das opções (digite o número).";
             await sock.sendMessage(phone, { text: reply });
             currentLead.messages.push({
               from: "menu",
               created_at: now,
               text: reply,
             });
-            currentLead.state = "in_queue";
-
             leads.set(phone, currentLead);
+            return;
+          }
 
-            const lead = await prisma.lead.update({
-              where: {
-                id: currentLead.id,
-              },
-              data: {
-                state: `in_queue`,
-                messages: {
-                  createMany: {
-                    data: currentLead.messages,
-                    skipDuplicates: true,
-                  },
-                },
-              },
-              select: {
-                id: true,
-                name: true,
-                phone: true,
-                state: true,
-                messages: {
-                  take: 1,
-                  orderBy: { created_at: "desc" },
-                  select: {
-                    text: true,
-                    created_at: true,
-                  },
-                },
-                _count: { select: { messages: true } },
-              },
-            });
+          const optionFound = await prisma.menuOption.findFirst({
+            where: { menu_id: currentLead.menu_id!, trigger },
+            select: {
+              id: true,
+              label: true,
+              trigger: true,
+              action: true,
+              payload: true,
+            },
+          });
 
-            io.emit("newLead", {
-              id: lead.id,
-              name: lead.name,
-              phone: lead.phone,
-              state: lead.state,
-              lastMessage: lead.messages[0] ?? null,
-              count: lead._count?.messages ?? 0,
-            });
-
-            break;
-
-          case "forward":
-            await sock.sendMessage(phone, { text: optionFound.reply_text! });
+          if (!optionFound) {
+            const reply =
+              "Opção inválida. Por favor, escolha uma das opções listadas.";
+            await sock.sendMessage(phone, { text: reply });
             currentLead.messages.push({
               from: "menu",
               created_at: now,
-              text: optionFound.reply_text!,
+              text: reply,
             });
-            currentLead.state = "await_response";
+            leads.set(phone, currentLead);
             break;
-        }
+          }
 
-      case "await_response":
-        await sock.sendMessage(optionFound!.forward_to!, { text });
-        await sock.sendMessage(phone, { text: optionFound!.finish_text! });
-        currentLead.state = "idle";
-        leads.set(phone, currentLead);
-        break;
+          const action = optionFound.action;
+          const payload = optionFound.payload ?? {};
+
+          // Support multiple possible action names (compatibility with frontend)
+          switch (action) {
+            case "auto_reply": {
+              const replyText = payload.reply_text ?? "";
+              if (replyText) {
+                await sock.sendMessage(phone, { text: replyText });
+                currentLead.messages.push({
+                  from: "menu",
+                  created_at: now,
+                  text: replyText,
+                });
+              }
+              currentLead.state = "idle";
+              currentLead.menu_id = null;
+              leads.set(phone, currentLead);
+              break;
+            }
+
+            case "forward_to_number": {
+              const forwardTo = payload.forward_to_numbe;
+              const finishText = payload.finish_text;
+              const forwardMessageContent = payload.forward_text;
+
+              try {
+                await sock.sendMessage(`${forwardTo}@s.whatsapp.net`, {
+                  text: `Encaminhado de ${formatPhoneFromJid(
+                    phone
+                  )}:\n\n${forwardMessageContent}`,
+                });
+              } catch (err) {
+                console.error("forward sendMessage error:", err);
+              }
+
+              await sock.sendMessage(phone, { text: finishText });
+              currentLead.messages.push({
+                from: "menu",
+                created_at: now,
+                text: finishText,
+              });
+
+              // registra no banco qual conteúdo foi encaminhado
+              await prisma.message.create({
+                data: {
+                  from: "agent",
+                  text: `Encaminhado para ${forwardTo}: ${forwardMessageContent}`,
+                  leadId: currentLead.id,
+                },
+              });
+
+              currentLead.state = "idle";
+              currentLead.menu_id = null;
+              leads.set(phone, currentLead);
+              break;
+            }
+
+            case "redirect_queue": {
+              const reply = payload.reply_text;
+              await sock.sendMessage(phone, { text: reply });
+              currentLead.messages.push({
+                from: "menu",
+                created_at: now,
+                text: reply,
+              });
+              currentLead.state = "in_queue";
+              leads.set(phone, currentLead);
+
+              const lead = await prisma.lead.update({
+                where: { id: currentLead.id },
+                data: {
+                  state: `in_queue`,
+                  messages: {
+                    createMany: {
+                      data: currentLead.messages.map((m) => ({
+                        text: m.text,
+                        from: m.from,
+                        created_at: m.created_at,
+                      })),
+                      skipDuplicates: true,
+                    },
+                  },
+                },
+                select: {
+                  id: true,
+                  name: true,
+                  phone: true,
+                  state: true,
+                  messages: {
+                    take: 1,
+                    orderBy: { created_at: "desc" },
+                    select: {
+                      text: true,
+                      created_at: true,
+                    },
+                  },
+                  _count: { select: { messages: true } },
+                },
+              });
+
+              io.emit("newLead", {
+                id: lead.id,
+                name: lead.name,
+                phone: lead.phone,
+                state: lead.state,
+                lastMessage: lead.messages[0] ?? null,
+                count: lead._count?.messages ?? 0,
+              });
+
+              break;
+            }
+          }
+
+          break;
+        }
+      }
+    } catch (err) {
+      console.error("messages.upsert handler error:", err);
     }
   });
 
+  // save credentials when updated
   sock.ev.on("creds.update", saveCreds);
 
   io.on("connection", async (socket) => {
@@ -368,6 +418,5 @@ export const startBaileysInstance = async ({
       });
     });
   });
-
   return sock;
 };

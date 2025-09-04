@@ -1,6 +1,6 @@
 import { prisma } from "../../../lib/prisma.js";
 
-export const getAllMenusService = async () => {
+export const getMenusService = async () => {
   const menus = await prisma.menu.findMany({
     include: { options: true },
   });
