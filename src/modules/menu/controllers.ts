@@ -3,6 +3,7 @@ import type { Request, Response } from "express";
 import { createMenuService } from "./services/create-menu.js";
 import { getMenusService } from "./services/get-menus.js";
 import { deleteMenuService } from "./services/delete-menu.js";
+import { editMenuService } from "./services/edit-menu.js";
 
 export const createMenuController = async (
   request: Request,
@@ -60,4 +61,21 @@ export const getMenusController = async (_: Request, response: Response) => {
   const menus = await getMenusService();
 
   return response.status(200).json(menus);
+};
+
+export const editMenuController = async (
+  request: Request,
+  response: Response
+) => {
+  const id = request.params.menu_id as string;
+
+  const body = request.body as {
+    name?: string;
+    message?: string;
+    keywords?: string[];
+  };
+
+  await editMenuService({ ...body, id });
+
+  return response.sendStatus(200);
 };

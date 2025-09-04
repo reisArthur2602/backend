@@ -1,4 +1,3 @@
-// server/baileys-instance.js
 import path from "path";
 import fs from "fs";
 import qrcode from "qrcode-terminal";
@@ -11,7 +10,7 @@ import { Boom } from "@hapi/boom";
 import { prisma } from "./prisma.js";
 import { io } from "../http/server.js";
 
-import type { LeadState, MessageFrom } from "@prisma/client";
+import { type LeadState, type MessageFrom } from "@prisma/client";
 import { getLeadsService } from "../modules/lead/services/get.js";
 import { normalizeText } from "../utils/normalize-text.js";
 
@@ -29,15 +28,16 @@ type LeadInMemory = {
   messages: MessageInMemory[];
   menu_id: string | null;
 };
+const leads = new Map<string, LeadInMemory>();
+
 const formatPhoneFromJid = (remoteJid?: string) => {
   if (!remoteJid) return "";
   const id = remoteJid.split("@")[0];
-  // if already starts with + keep, else add +
+
   return id?.startsWith("+") ? id : `+${id}`;
 };
-const INSTANCES_PATH = path.resolve("./instances");
 
-const leads = new Map<string, LeadInMemory>();
+const INSTANCES_PATH = path.resolve("./instances");
 
 const ensureInstanceDir = (instancePath: string) => {
   if (!fs.existsSync(instancePath))
@@ -161,7 +161,6 @@ export const startBaileysInstance = async ({
       const text =
         msg.message.conversation ||
         msg.message?.extendedTextMessage?.text ||
-        // add other message types if you need (image with caption, etc.)
         "";
 
       const currentLead = await getLead({ phone, pushName });
@@ -170,7 +169,6 @@ export const startBaileysInstance = async ({
       currentLead.messages.push({ from: "customer", created_at: now, text });
       leads.set(phone, currentLead);
 
-      // if already in queue or in service -> forward to UI and persist
       if (
         currentLead.state === "in_queue" ||
         currentLead.state === "in_service"
@@ -187,7 +185,6 @@ export const startBaileysInstance = async ({
         return;
       }
 
-      //
       switch (currentLead.state) {
         case "idle": {
           const normalizedText = normalizeText(text);
@@ -209,7 +206,6 @@ export const startBaileysInstance = async ({
 
           if (!menuFound) break;
 
-          // no options -> just auto-reply with menu message
           if ((menuFound._count?.options ?? 0) === 0) {
             await sock.sendMessage(phone, { text: menuFound.message });
             currentLead.messages.push({
@@ -222,7 +218,6 @@ export const startBaileysInstance = async ({
             break;
           }
 
-          // menu with options -> send menu and await option
           await sock.sendMessage(phone, { text: menuFound.message });
           currentLead.messages.push({
             from: "menu",
@@ -278,21 +273,28 @@ export const startBaileysInstance = async ({
           const action = optionFound.action;
           const payload = optionFound.payload ?? {};
 
-          // Support multiple possible action names (compatibility with frontend)
           switch (action) {
             case "auto_reply": {
-              const replyText = payload.reply_text ?? "";
-              if (replyText) {
-                await sock.sendMessage(phone, { text: replyText });
-                currentLead.messages.push({
-                  from: "menu",
-                  created_at: now,
-                  text: replyText,
-                });
-              }
+              const replyText = payload.reply_text;
+
+              await sock.sendMessage(phone, { text: replyText });
+              currentLead.messages.push({
+                from: "menu",
+                created_at: now,
+                text: replyText,
+              });
+
               currentLead.state = "idle";
               currentLead.menu_id = null;
               leads.set(phone, currentLead);
+
+              await prisma.lead.update({
+                where: { id: currentLead.id },
+                data: {
+                  state: "idle",
+                  messages: { createMany: { data: currentLead.messages } },
+                },
+              });
               break;
             }
 
@@ -301,15 +303,11 @@ export const startBaileysInstance = async ({
               const finishText = payload.finish_text;
               const forwardMessageContent = payload.forward_text;
 
-              try {
-                await sock.sendMessage(`${forwardTo}@s.whatsapp.net`, {
-                  text: `Encaminhado de ${formatPhoneFromJid(
-                    phone
-                  )}:\n\n${forwardMessageContent}`,
-                });
-              } catch (err) {
-                console.error("forward sendMessage error:", err);
-              }
+              await sock.sendMessage(`${forwardTo}@s.whatsapp.net`, {
+                text: `Encaminhado de ${formatPhoneFromJid(
+                  phone
+                )}:\n\n${forwardMessageContent}`,
+              });
 
               await sock.sendMessage(phone, { text: finishText });
               currentLead.messages.push({
@@ -318,18 +316,17 @@ export const startBaileysInstance = async ({
                 text: finishText,
               });
 
-              // registra no banco qual conteúdo foi encaminhado
-              await prisma.message.create({
-                data: {
-                  from: "agent",
-                  text: `Encaminhado para ${forwardTo}: ${forwardMessageContent}`,
-                  leadId: currentLead.id,
-                },
-              });
-
               currentLead.state = "idle";
               currentLead.menu_id = null;
               leads.set(phone, currentLead);
+
+              await prisma.lead.update({
+                where: { id: currentLead.id },
+                data: {
+                  state: "idle",
+                  messages: { createMany: { data: currentLead.messages } },
+                },
+              });
               break;
             }
 
@@ -344,7 +341,16 @@ export const startBaileysInstance = async ({
               currentLead.state = "in_queue";
               leads.set(phone, currentLead);
 
-              const lead = await prisma.lead.update({
+              io.emit("newLead", {
+                id: currentLead.id,
+                name: currentLead.name,
+                phone: currentLead.phone,
+                state: currentLead.state,
+                lastMessage: currentLead.messages[0] ?? null,
+                count: currentLead.messages.length ?? 0,
+              });
+
+              await prisma.lead.update({
                 where: { id: currentLead.id },
                 data: {
                   state: `in_queue`,
@@ -359,30 +365,6 @@ export const startBaileysInstance = async ({
                     },
                   },
                 },
-                select: {
-                  id: true,
-                  name: true,
-                  phone: true,
-                  state: true,
-                  messages: {
-                    take: 1,
-                    orderBy: { created_at: "desc" },
-                    select: {
-                      text: true,
-                      created_at: true,
-                    },
-                  },
-                  _count: { select: { messages: true } },
-                },
-              });
-
-              io.emit("newLead", {
-                id: lead.id,
-                name: lead.name,
-                phone: lead.phone,
-                state: lead.state,
-                lastMessage: lead.messages[0] ?? null,
-                count: lead._count?.messages ?? 0,
               });
 
               break;
@@ -397,7 +379,6 @@ export const startBaileysInstance = async ({
     }
   });
 
-  // save credentials when updated
   sock.ev.on("creds.update", saveCreds);
 
   io.on("connection", async (socket) => {
@@ -418,5 +399,6 @@ export const startBaileysInstance = async ({
       });
     });
   });
+  
   return sock;
 };
