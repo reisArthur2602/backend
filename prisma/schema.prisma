@@ -36,7 +36,7 @@ model MenuOption {
   menu_id String
   menu    Menu   @relation(fields: [menu_id], references: [id], onDelete: Cascade)
   label   String
-  trigger Int
+  trigger Int    @unique
 
   action  OptionAction
   payload Json?

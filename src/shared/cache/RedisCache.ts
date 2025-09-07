@@ -1,26 +1,32 @@
-import redisConfig from "../../config/redis-config.js";
-import Redis from "ioredis";
+import redisConfig from '../../config/redis-config.js';
+import Redis from 'ioredis';
 
-class RedisCache {
+export interface IRedisCache {
+  save(data: { key: string; value: any }): Promise<void>;
+  recover<T>(data: { key: string }): Promise<T | null>;
+  invalidate(data: { key: string }): Promise<void>;
+}
+
+class RedisCache implements IRedisCache {
   private client: Redis.Redis;
 
   constructor() {
     this.client = new Redis.default(redisConfig);
   }
 
-  public async save(input: { key: string; value: any }) {
-    await this.client.set(input.key, JSON.stringify(input.value));
+  public async save(data: { key: string; value: any }) {
+    await this.client.set(data.key, JSON.stringify(data.value));
   }
-  
-  public async recover<T>(input: { key: string }): Promise<T | null> {
-    const data = await this.client.get(input.key);
-    if (!data) return null;
 
-    const json = JSON.parse(data) as T;
+  public async recover<T>(data: { key: string }): Promise<T | null> {
+    const result = await this.client.get(data.key);
+    if (!result) return null;
+
+    const json = JSON.parse(result) as T;
     return json;
   }
 
-  public async invalidate<T>(input: { key: string }) {
+  public async invalidate(input: { key: string }) {
     await this.client.del(input.key);
   }
 }

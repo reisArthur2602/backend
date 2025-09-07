@@ -4,10 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "tsx watch src/http/server.ts",
+    "dev": "tsx watch src/shared/http/server.ts",
     "build": "tsc",
     "start": "node dist/app.js",
-    "prisma:seed": "tsx prisma/seed.js"
+    "lint": "prettier --write ."
   },
   "keywords": [],
   "author": "",
@@ -32,6 +32,7 @@
     "@types/express": "^5.0.3",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/qrcode-terminal": "^0.12.2",
+    "prettier": "^3.6.2",
     "prisma": "^6.15.0",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2"
