@@ -1,12 +1,12 @@
 import type { Menu, Prisma } from '@prisma/client';
-import type { CreateMenuDto } from '../domains/models/menu/CreateMenuDto.js';
+import type { CreateMenuDto } from '../domains/dtos/menu/CreateMenuDto.js';
 
 import type { IMenuRepository } from '../domains/repositories/IMenuRepository.js';
 import { prisma } from '../lib/prisma.js';
-import type { GetMenuByKeywordsDto } from '../domains/models/menu/GetMenuByKeywordsDto.js';
-import type { GetMenuByIdDto } from '../domains/models/menu/GetMenuByIdDto.js';
-import type { DeleteMenuDto } from '../domains/models/menu/DeleteMenuDto.js';
-import type { UpdateMenuDto } from '../domains/models/menu/UpdateMenuDto.js';
+import type { GetMenuByKeywordsDto } from '../domains/dtos/menu/GetMenuByKeywordsDto.js';
+import type { GetMenuByIdDto } from '../domains/dtos/menu/GetMenuByIdDto.js';
+import type { DeleteMenuDto } from '../domains/dtos/menu/DeleteMenuDto.js';
+import type { UpdateMenuDto } from '../domains/dtos/menu/UpdateMenuDto.js';
 
 class MenuRepository implements IMenuRepository {
   public async get(): Promise<Prisma.MenuGetPayload<{ include: { options: true } }>[]> {

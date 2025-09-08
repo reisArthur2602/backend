@@ -25,6 +25,7 @@ model Menu {
   keywords   String[]     @default([])
   active     Boolean      @default(true)
   options    MenuOption[]
+  matches    Match[]      @relation("MenuMatches")
   created_at DateTime     @default(now())
   updated_at DateTime     @updatedAt
 
@@ -32,17 +33,16 @@ model Menu {
 }
 
 model MenuOption {
-  id      String @id @default(uuid())
-  menu_id String
-  menu    Menu   @relation(fields: [menu_id], references: [id], onDelete: Cascade)
-  label   String
-  trigger Int    @unique
+  id         String       @id @default(uuid())
+  menu_id    String
+  menu       Menu         @relation(fields: [menu_id], references: [id], onDelete: Cascade)
+  label      String
+  trigger    Int          @unique
+  action     OptionAction
+  payload    Json?
 
-  action  OptionAction
-  payload Json?
-
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+  created_at DateTime     @default(now())
+  updated_at DateTime     @updatedAt
 
   @@index([menu_id])
   @@map("menu_options")
@@ -50,45 +50,31 @@ model MenuOption {
 
 enum OptionAction {
   auto_reply
-  forward_to_number
-  redirect_queue
 }
 
 model Lead {
   id         String    @id @default(uuid())
   name       String?
   phone      String    @unique
-  state      LeadState @default(idle)
-  messages   Message[]
+  matches    Match[]   @relation("LeadMatches")
   created_at DateTime  @default(now())
   updated_at DateTime  @updatedAt
 
   @@map("leads")
 }
 
-model Message {
-  id   String      @id @default(uuid())
-  text String
-  from MessageFrom
+model Match {
+  id         String   @id @default(uuid())
 
-  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  leadId String
+  menu_id    String
+  lead_phone String
+  message   String
+
+  menu       Menu     @relation("MenuMatches", fields: [menu_id], references: [id])
+  lead       Lead     @relation("LeadMatches", fields: [lead_phone], references: [phone])
 
   created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
-  @@index([leadId, created_at])
-  @@map("messages")
-}
-
-enum LeadState {
-  idle
-  await_option
-  in_queue
-  in_service
-}
-
-enum MessageFrom {
-  customer
-  menu
-  agent
+  @@map("matchs")
 }

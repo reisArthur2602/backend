@@ -1,4 +1,6 @@
 import MenuRepository from '../../repositories/MenuRepository.js';
+import type { IRedisCache } from '../../shared/cache/RedisCache.js';
+import RedisCache from '../../shared/cache/RedisCache.js';
 import { ConflictError, NotFoundError } from '../../utils/error-handlers.js';
 
 interface IDeleteMenuService {
@@ -7,9 +9,10 @@ interface IDeleteMenuService {
 
 class DeleteMenuService {
   private menuRepository: MenuRepository;
-
+  private redisCache: IRedisCache;
   constructor() {
     this.menuRepository = new MenuRepository();
+    this.redisCache = new RedisCache();
   }
 
   public async execute(data: IDeleteMenuService) {
@@ -17,6 +20,7 @@ class DeleteMenuService {
     if (!menuExists) throw new NotFoundError('Nenhum menu foi encontrado');
 
     await this.menuRepository.delete({ id: data.id });
+    await this.redisCache.invalidate({ key: 'menus' });
   }
 }
 

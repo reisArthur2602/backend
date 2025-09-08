@@ -9,6 +9,7 @@ import {
 } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 import EventEmitter from 'events';
+import { io } from '../../shared/http/server.js';
 
 class BaileysAdapter extends EventEmitter {
   private sock!: WASocket;
@@ -18,8 +19,8 @@ class BaileysAdapter extends EventEmitter {
   constructor(instanceId: string) {
     super();
     this.instanceId = instanceId;
-    this.instancePath = this.ensureInstancePath();
     this.status = 'pending';
+    this.instancePath = this.ensureInstancePath();
   }
 
   private ensureInstancePath(): string {
@@ -40,6 +41,7 @@ class BaileysAdapter extends EventEmitter {
       if (qr) {
         qrCodeTerminal.generate(qr, { small: true });
         this.status = 'pending';
+        io.emit('qr', qr);
       }
 
       switch (connection) {

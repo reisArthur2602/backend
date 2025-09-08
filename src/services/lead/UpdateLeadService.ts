@@ -1,11 +1,9 @@
-import type { LeadState } from '@prisma/client';
 import LeadRepository from '../../repositories/LeadRepository.js';
 import { ConflictError } from '../../utils/error-handlers.js';
 
 interface IUpdateLeadService {
   phone: string;
   name?: string;
-  state?: LeadState;
 }
 
 class UpdateLeadService {

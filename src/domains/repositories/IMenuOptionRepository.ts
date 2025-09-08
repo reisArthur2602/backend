@@ -1,8 +1,8 @@
 import type { MenuOption } from '@prisma/client';
-import type { CreateMenuOptionDto } from '../models/menu-option/CreateMenuOptionDto.js';
-import type { DeleteMenuOptionDto } from '../models/menu-option/DeleteMenuOptionDto.js';
-import type { GetMenuOptionByTriggerDto } from '../models/menu-option/GetMenuOptionByTriggerDto.js';
-import type { GetMenuOptionByIdDto } from '../models/menu-option/GetMenuOptionByIdDto.js';
+import type { CreateMenuOptionDto } from '../dtos/menu-option/CreateMenuOptionDto.js';
+import type { DeleteMenuOptionDto } from '../dtos/menu-option/DeleteMenuOptionDto.js';
+import type { GetMenuOptionByTriggerDto } from '../dtos/menu-option/GetMenuOptionByTriggerDto.js';
+import type { GetMenuOptionByIdDto } from '../dtos/menu-option/GetMenuOptionByIdDto.js';
 
 export interface IMenuOptionRepository {
   get: () => Promise<MenuOption[]>;

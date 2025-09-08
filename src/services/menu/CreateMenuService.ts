@@ -1,4 +1,7 @@
+import type { IMenuRepository } from '../../domains/repositories/IMenuRepository.js';
 import MenuRepository from '../../repositories/MenuRepository.js';
+import type { IRedisCache } from '../../shared/cache/RedisCache.js';
+import RedisCache from '../../shared/cache/RedisCache.js';
 import { ConflictError } from '../../utils/error-handlers.js';
 
 interface ICreateMenuService {
@@ -8,10 +11,12 @@ interface ICreateMenuService {
 }
 
 class CreateMenuService {
-  private menuRepository: MenuRepository;
+  private menuRepository: IMenuRepository;
+  private redisCache: IRedisCache;
 
   constructor() {
     this.menuRepository = new MenuRepository();
+    this.redisCache = new RedisCache();
   }
 
   public async execute(data: ICreateMenuService) {
@@ -22,6 +27,7 @@ class CreateMenuService {
     }
 
     await this.menuRepository.create(data);
+    await this.redisCache.invalidate({ key: 'menus' });
   }
 }
 

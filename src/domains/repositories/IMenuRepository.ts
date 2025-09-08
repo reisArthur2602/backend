@@ -1,10 +1,10 @@
 import type { Menu, Prisma } from '@prisma/client';
 
-import type { GetMenuByKeywordsDto } from '../models/menu/GetMenuByKeywordsDto.js';
-import type { GetMenuByIdDto } from '../models/menu/GetMenuByIdDto.js';
-import type { CreateMenuDto } from '../models/menu/CreateMenuDto.js';
-import type { DeleteMenuDto } from '../models/menu/DeleteMenuDto.js';
-import type { UpdateMenuDto } from '../models/menu/UpdateMenuDto.js';
+import type { GetMenuByKeywordsDto } from '../dtos/menu/GetMenuByKeywordsDto.js';
+import type { GetMenuByIdDto } from '../dtos/menu/GetMenuByIdDto.js';
+import type { CreateMenuDto } from '../dtos/menu/CreateMenuDto.js';
+import type { DeleteMenuDto } from '../dtos/menu/DeleteMenuDto.js';
+import type { UpdateMenuDto } from '../dtos/menu/UpdateMenuDto.js';
 
 export interface IMenuRepository {
   getbyKeywords: (data: GetMenuByKeywordsDto) => Promise<Menu | null>;

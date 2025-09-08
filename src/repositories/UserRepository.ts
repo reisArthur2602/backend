@@ -1,8 +1,8 @@
 import type { User } from '@prisma/client';
-import type { CreateUserDto } from '../domains/models/user/CreateUserDto.js';
+import type { CreateUserDto } from '../domains/dtos/user/CreateUserDto.js';
 import type { IUserRepository } from '../domains/repositories/IUserRepository.js';
-import type { GetUserbyEmailDto } from '../domains/models/user/GetUserByEmailDto.js';
-import type { GetUserbyIdDto } from '../domains/models/user/GetUserByIdDto .js';
+import type { GetUserbyEmailDto } from '../domains/dtos/user/GetUserByEmailDto.js';
+import type { GetUserbyIdDto } from '../domains/dtos/user/GetUserByIdDto .js';
 
 import { prisma } from '../lib/prisma.js';
 

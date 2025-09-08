@@ -21,8 +21,6 @@ const server = http.createServer(app);
 
 export const io = setupSocket({ server });
 
-bootstrap();
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
@@ -36,4 +34,5 @@ app.use(errorsMiddleware);
 
 server.listen(PORT, () => {
   console.log(`👽 Server rodando na Porta:${PORT}`);
+  bootstrap();
 });

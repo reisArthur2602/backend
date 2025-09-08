@@ -1,5 +1,5 @@
 import { hash } from 'bcrypt';
-import type { CreateUserDto } from '../../domains/models/user/CreateUserDto.js';
+import type { CreateUserDto } from '../../domains/dtos/user/CreateUserDto.js';
 import type { IUserRepository } from '../../domains/repositories/IUserRepository.js';
 import UserRepository from '../../repositories/UserRepository.js';
 import { ConflictError } from '../../utils/error-handlers.js';
