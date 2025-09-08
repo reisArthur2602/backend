@@ -6,13 +6,13 @@ import http from 'http';
 
 import { errorsMiddleware } from './middleware/errors.js';
 
-import { setupSocket } from '../../lib/socket-io.js';
+import { setupSocket } from '../../infra/Socket/SocketSetup.js';
 
 import { bootstrap } from './main.js';
-import { userRoutes } from '../../routes/UserRoutes.js';
-import { menuRoutes } from '../../routes/MenuRoutes.js';
-import { leadRoutes } from '../../routes/LeadRoutes.js';
-import { menuOptionRoutes } from '../../routes/MenuOptionRoutes.js';
+import { userRoutes } from '../../modules/User/routes/UserRoutes.js';
+import { menuRoutes } from '../../modules/Menu/routes/MenuRoutes.js';
+import { leadRoutes } from '../../modules/Lead/routes/LeadRoutes.js';
+import { menuOptionRoutes } from '../../modules/MenuOption/routes/MenuOptionRoutes.js';
 
 const PORT = Number(process.env.PORT) || 8080;
 const app = express();

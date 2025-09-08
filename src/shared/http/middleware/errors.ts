@@ -1,9 +1,4 @@
-import {
-  type NextFunction,
-  type Response,
-  type Request,
-  type ErrorRequestHandler,
-} from 'express';
+import { type ErrorRequestHandler } from 'express';
 import { ZodError } from 'zod';
 import type { AplicationError } from '../../../utils/error-handlers.js';
 
@@ -11,7 +6,7 @@ export const errorsMiddleware: ErrorRequestHandler = (
   error,
   req,
   res,
-  next
+  next,
 ) => {
   let statusCode = 500;
   let errorResponse: { message: string }[] = [];
@@ -24,7 +19,7 @@ export const errorsMiddleware: ErrorRequestHandler = (
       .flat()
       .filter((msg): msg is string => typeof msg === 'string');
     const formErrors = flattened.formErrors.filter(
-      (msg): msg is string => typeof msg === 'string'
+      (msg): msg is string => typeof msg === 'string',
     );
 
     errorResponse = [...fieldErrors, ...formErrors].map((message) => ({
