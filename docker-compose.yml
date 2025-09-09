@@ -1,33 +1,30 @@
-version: '3'
+version: '3.8'
 
 services:
-  app:
-    build: .
-    entrypoint: .docker/entrypoint.sh
-    container_name: sender-api
-    ports:
-      - '3333:3333'
+  db:
+    image: postgres:15
+    container_name: sender-database
+    restart: always
+    tty: true
     volumes:
-      - .:/home/arthur/node/app
-    depends_on:
-      - db
-      - redis
-
-    db:
-      build: .docker/postgres
-      container_name: sender-database
-      restart: always
-      tty: true
-      ports:
-        - '5433:5432'
-      volumes:
-        - .docker/dbdata:/var/lib/postgresql/data
-      environment:
-        - POSTGRES_PASSWORD=docker
-        - POSTGRES_DB=sender-api
+      - .docker/dbdata:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=sender
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=sender-api
+    networks:
+      - internal
 
   redis:
     image: bitnami/redis:latest
     container_name: sender-redis
+    restart: always
     environment:
-      - ALLOW_EMPTY_PASSWORD=yes
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - ALLOW_EMPTY_PASSWORD=no
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge
