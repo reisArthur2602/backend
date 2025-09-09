@@ -7,4 +7,5 @@ const menuOptionController = new MenuOptionController();
 
 menuOptionRoutes.post('/create', menuOptionController.create);
 menuOptionRoutes.delete('/:option_id', menuOptionController.delete);
-menuOptionRoutes.get('/', menuOptionController.get);
+menuOptionRoutes.get('/:menu_id', menuOptionController.get);
+

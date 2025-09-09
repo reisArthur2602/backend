@@ -8,8 +8,7 @@ import type { UpdateLeadDto } from '../domain/dtos/UpdateLeadDto.js';
 class LeadRepository implements ILeadRepository {
   public async get() {
     const lead = await prisma.lead.findMany({
-      include: { matches: true },
-      orderBy: { created_at: 'desc' },
+      include: { matches: { orderBy: { created_at: 'desc' } } },
     });
     return lead;
   }

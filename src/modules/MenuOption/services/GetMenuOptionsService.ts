@@ -1,6 +1,10 @@
 import type { IMenuOptionRepository } from '../domain/repository/IMenuOptionRepository.js';
 import MenuOptionRepository from '../repository/MenuOptionRepository.js';
 
+interface IGetMenuOptionService {
+  id: string;
+}
+
 class GetMenuOptionService {
   private menuOptionRepository: IMenuOptionRepository;
 
@@ -8,9 +12,8 @@ class GetMenuOptionService {
     this.menuOptionRepository = new MenuOptionRepository();
   }
 
-  public async execute() {
-    const options = await this.menuOptionRepository.get();
-
+  public async execute(data: IGetMenuOptionService) {
+    const options = await this.menuOptionRepository.get({ id: data.id });
     return options;
   }
 }

@@ -10,7 +10,9 @@ export default class MenuOptionController {
   async create(request: Request, response: Response) {
     const data = z
       .object({
-        menu_id: z.string().min(1, { message: 'Informe o identificador do menu.' }),
+        menu_id: z
+          .string()
+          .min(1, { message: 'Informe o identificador do menu.' }),
         trigger: z.coerce.number({
           message: 'O gatilho deve ser um número válido.',
         }),
@@ -46,9 +48,17 @@ export default class MenuOptionController {
   }
 
   async get(request: Request, response: Response) {
+    const data = z
+      .object({
+        menu_id: z.string({ message: 'O ID do menu é obrigatório.' }).uuid({
+          message: 'O ID do menu deve estar em um formato UUID válido.',
+        }),
+      })
+      .parse(request.params);
+
     const getMenusOptionService = new GetMenuOptionService();
 
-    const options = await getMenusOptionService.execute();
+    const options = await getMenusOptionService.execute({ id: data.menu_id });
 
     return response.status(200).json(options);
   }

@@ -6,6 +6,7 @@ import type { MenuOption } from '@prisma/client';
 import type { CreateMenuOptionDto } from '../domain/dtos/CreateMenuOptionDto.js';
 import type { GetMenuOptionByTriggerDto } from '../domain/dtos/GetMenuOptionByTriggerDto.js';
 import type { GetMenuOptionByIdDto } from '../domain/dtos/GetMenuOptionByIdDto.js';
+import type { GetMenuOptionByMenuDto } from '../domain/dtos/GetMenuOptionByMenu.js';
 
 class MenuOptionRepository implements IMenuOptionRepository {
   public async create(data: CreateMenuOptionDto): Promise<MenuOption> {
@@ -16,8 +17,13 @@ class MenuOptionRepository implements IMenuOptionRepository {
     return options;
   }
 
-  public async get(): Promise<MenuOption[]> {
-    const options = await prisma.menuOption.findMany();
+  public async get(data: GetMenuOptionByMenuDto): Promise<MenuOption[]> {
+    
+    const options = await prisma.menuOption.findMany({
+      where: {
+        menu_id: data.id,
+      },
+    });
     return options;
   }
 
