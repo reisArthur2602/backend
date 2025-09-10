@@ -37,14 +37,13 @@ model MenuOption {
   menu_id    String
   menu       Menu         @relation(fields: [menu_id], references: [id], onDelete: Cascade)
   label      String
-  trigger    Int          @unique
+  trigger    Int
   action     OptionAction
   payload    Json?
 
   created_at DateTime     @default(now())
   updated_at DateTime     @updatedAt
 
-  @@index([menu_id])
   @@map("menu_options")
 }
 
@@ -68,13 +67,14 @@ model Match {
 
   menu_id    String
   lead_phone String
-  message   String
+  message    String
 
-  menu       Menu     @relation("MenuMatches", fields: [menu_id], references: [id])
-  lead       Lead     @relation("LeadMatches", fields: [lead_phone], references: [phone])
+  menu       Menu     @relation("MenuMatches", fields: [menu_id], references: [id], onDelete: Cascade)
+  lead       Lead     @relation("LeadMatches", fields: [lead_phone], references: [phone], onDelete: Cascade)
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
   @@map("matchs")
 }
+

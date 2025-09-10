@@ -2,6 +2,8 @@ import type { OptionAction } from '@prisma/client';
 import type { IMenuOptionRepository } from '../domain/repository/IMenuOptionRepository.js';
 import MenuOptionRepository from '../repository/MenuOptionRepository.js';
 import { ConflictError } from '../../../utils/error-handlers.js';
+import type { IRedisCache } from '../../../infra/database/redis/Redis.js';
+import RedisCache from '../../../infra/database/redis/Redis.js';
 
 interface ICreateMenuOptionService {
   menu_id: string;
@@ -13,9 +15,11 @@ interface ICreateMenuOptionService {
 
 class CreateMenuOptionService {
   private menuOptionRepository: IMenuOptionRepository;
+  private redisCache: IRedisCache;
 
   constructor() {
     this.menuOptionRepository = new MenuOptionRepository();
+    this.redisCache = new RedisCache();
   }
 
   public async execute(data: ICreateMenuOptionService) {
@@ -29,6 +33,8 @@ class CreateMenuOptionService {
     }
 
     await this.menuOptionRepository.create(data);
+
+    await this.redisCache.invalidate({ key: 'menus' });
   }
 }
 

@@ -18,7 +18,6 @@ class MenuOptionRepository implements IMenuOptionRepository {
   }
 
   public async get(data: GetMenuOptionByMenuDto): Promise<MenuOption[]> {
-    
     const options = await prisma.menuOption.findMany({
       where: {
         menu_id: data.id,
@@ -30,7 +29,7 @@ class MenuOptionRepository implements IMenuOptionRepository {
   public async getbyTrigger(
     data: GetMenuOptionByTriggerDto,
   ): Promise<MenuOption | null> {
-    const option = await prisma.menuOption.findUnique({
+    const option = await prisma.menuOption.findFirst({
       where: {
         menu_id: data.menu_id,
         trigger: data.trigger,
