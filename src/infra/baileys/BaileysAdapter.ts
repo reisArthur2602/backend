@@ -10,6 +10,8 @@ import {
 import { Boom } from '@hapi/boom';
 import EventEmitter from 'events';
 import { io } from '../../shared/http/server.js';
+import pino from 'pino';
+import { logger } from '../../shared/logger/pino.js';
 
 class BaileysAdapter extends EventEmitter {
   private sock!: WASocket;
@@ -26,14 +28,18 @@ class BaileysAdapter extends EventEmitter {
   private ensureInstancePath(): string {
     const instancePath = path.join('./instances', this.instanceId);
 
-    if (!fs.existsSync(instancePath)) fs.mkdirSync(instancePath, { recursive: true });
+    if (!fs.existsSync(instancePath))
+      fs.mkdirSync(instancePath, { recursive: true });
 
     return instancePath;
   }
 
   public async init() {
     const { state, saveCreds } = await useMultiFileAuthState(this.instancePath);
-    this.sock = makeWASocket({ auth: state });
+    this.sock = makeWASocket({
+      auth: state,
+      logger: pino({ level: 'silent' }),
+    });
 
     this.sock.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect, qr } = update;
@@ -44,25 +50,25 @@ class BaileysAdapter extends EventEmitter {
         io.emit('qr', qr);
       }
 
-      switch (connection) {
-        case 'connecting': {
-          this.status = 'connecting';
-          break;
-        }
+      if (connection === 'open') {
+        logger.info('[WHATSAPP] => Conectado');
+        this.status = 'connected';
+        return;
+      }
 
-        case 'open': {
-          this.status = 'connected';
-          break;
-        }
-        case 'close': {
-          const reason = (lastDisconnect?.error as Boom)?.output?.statusCode;
+      if (connection === 'connecting') {
+        logger.info('[WHATSAPP] => Conectando sessao');
+        this.status = 'connecting';
+        return;
+      }
+      if (connection === 'close') {
+        const reason = (lastDisconnect?.error as Boom)?.output?.statusCode;
 
-          if (reason === DisconnectReason.loggedOut)
-            fs.rmSync(this.instancePath, { recursive: true, force: true });
+        if (reason === DisconnectReason.loggedOut)
+          fs.rmSync(this.instancePath, { recursive: true, force: true });
 
-          await this.init();
-          break;
-        }
+        logger.warn('[WHATSAPP] => Conexao fechada, gerando novo QR Code');
+        await this.init();
       }
 
       this.emit('connection', {
@@ -77,7 +83,10 @@ class BaileysAdapter extends EventEmitter {
 
       const senderName = msg.pushName || '';
       const phone = msg.key.remoteJid!;
-      const text = msg.message.conversation || msg.message?.extendedTextMessage?.text || '';
+      const text =
+        msg.message.conversation ||
+        msg.message?.extendedTextMessage?.text ||
+        '';
 
       this.emit('received.message', {
         senderName,
@@ -89,7 +98,13 @@ class BaileysAdapter extends EventEmitter {
     this.sock.ev.on('creds.update', saveCreds);
   }
 
-  public async sendTextMessage({ phone, text }: { phone: string; text: string }) {
+  public async sendTextMessage({
+    phone,
+    text,
+  }: {
+    phone: string;
+    text: string;
+  }) {
     await this.sock.sendMessage(phone, { text });
   }
 }
