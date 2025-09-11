@@ -9,7 +9,7 @@ services:
     volumes:
       - .docker/dbdata:/var/lib/postgresql/data
     environment:
-      - POSTGRES_PASSWORD=dcoker
+      - POSTGRES_PASSWORD=docker
       - POSTGRES_DB=sender-api
 
   redis:

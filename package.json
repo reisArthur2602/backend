@@ -6,8 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/shared/http/server.ts",
     "build": "tsc",
-    "start": "node dist/app.js",
-    "lint": "prettier --write ."
+    "start": "node dist/shared/http/server.js"
   },
   "keywords": [],
   "author": "",
