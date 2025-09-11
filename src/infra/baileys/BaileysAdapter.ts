@@ -50,25 +50,40 @@ class BaileysAdapter extends EventEmitter {
         io.emit('qr', qr);
       }
 
-      if (connection === 'open') {
-        logger.info('[WHATSAPP] => Conectado');
-        this.status = 'connected';
-        return;
-      }
+      switch (connection) {
+        case 'connecting': {
+          this.status = 'connecting';
+          logger.info(`[WHATSAPP] Conectando sessao: ${this.instanceId}`);
+          break;
+        }
 
-      if (connection === 'connecting') {
-        logger.info('[WHATSAPP] => Conectando sessao');
-        this.status = 'connecting';
-        return;
-      }
-      if (connection === 'close') {
-        const reason = (lastDisconnect?.error as Boom)?.output?.statusCode;
+        case 'open': {
+          this.status = 'connected';
+          logger.info(
+            `[WHATSAPP] Sessao conectada com sucesso: ${this.instanceId}`,
+          );
+          break;
+        }
 
-        if (reason === DisconnectReason.loggedOut)
-          fs.rmSync(this.instancePath, { recursive: true, force: true });
+        case 'close': {
+          const reason = (lastDisconnect?.error as Boom)?.output?.statusCode;
+          logger.warn(
+            `[WHATSAPP] Sessao encerrada para ${this.instanceId} - Motivo: ${reason ?? 'desconhecido'}`,
+          );
 
-        logger.warn('[WHATSAPP] => Conexao fechada, gerando novo QR Code');
-        await this.init();
+          if (reason === DisconnectReason.loggedOut) {
+            logger.warn(
+              `[WHATSAPP] Sessao deslogada. Removendo arquivos da instancia: ${this.instancePath}`,
+            );
+            fs.rmSync(this.instancePath, { recursive: true, force: true });
+          }
+
+          logger.info(
+            `[WHATSAPP] Reiniciando sessão para instância: ${this.instanceId}`,
+          );
+          await this.init();
+          break;
+        }
       }
 
       this.emit('connection', {
