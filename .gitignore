@@ -50,7 +50,7 @@ web_modules/
 
 # Optional npm cache directory
 .npm
-
+.docker
 # Optional eslint cache
 .eslintcache
 

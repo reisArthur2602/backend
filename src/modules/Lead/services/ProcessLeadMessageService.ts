@@ -94,12 +94,13 @@ export default class ProcessLeadMessageService {
 
         if (menuFound.options.length === 0) break;
 
-        currentLead.state = 'await_option';
-        currentLead.selectedMenu = menuFound;
-
         await this.redisCache.save({
           key: `lead:${message.phone}`,
-          value: currentLead,
+          value: {
+            ...currentLead,
+            state: 'await_option',
+            selectedMenu: menuFound,
+          },
         });
 
         break;
@@ -109,47 +110,35 @@ export default class ProcessLeadMessageService {
         const parsed = Number(message.text);
 
         if (!parsed) {
-          await this.baileys.sendTextMessage({
-            phone: message.phone,
-            text: 'Por favor, escolha uma das opções (digite o número).',
+          await this.redisCache.save({
+            key: `lead:${message.phone}`,
+            value: { ...currentLead, state: 'idle', selectedMenu: null },
           });
           break;
         }
 
-        const selectedMenu = currentLead.selectedMenu;
-        if (!selectedMenu) break;
-
-        const optionFound = selectedMenu.options.find(
+        const optionFound = currentLead.selectedMenu?.options.find(
           (option) => option.trigger === parsed,
         );
 
-        if (!optionFound) {
-          await this.baileys.sendTextMessage({
-            phone: message.phone,
-            text: 'Opção inválida. Por favor, escolha uma das opções listadas no menu.',
-          });
-          break;
+        if (optionFound) {
+          const action = optionFound?.action;
+          const payload = optionFound?.payload ?? {};
+
+          if (action === 'auto_reply') {
+            const reply = payload as { reply_text: string };
+
+            await this.baileys.sendTextMessage({
+              phone: message.phone,
+              text: reply.reply_text,
+            });
+          }
         }
 
-        const action = optionFound.action;
-        const payload = optionFound.payload ?? {};
-
-        if (action === 'auto_reply') {
-          const reply = payload as { reply_text: string };
-
-          await this.baileys.sendTextMessage({
-            phone: message.phone,
-            text: reply.reply_text,
-          });
-          currentLead.state = 'idle';
-          currentLead.selectedMenu = null;
-          await this.redisCache.save({
-            key: `lead:${message.phone}`,
-            value: currentLead,
-          });
-        }
-
-        break;
+        await this.redisCache.save({
+          key: `lead:${message.phone}`,
+          value: { ...currentLead, state: 'idle', selectedMenu: null },
+        });
       }
     }
   }
